@@ -1,0 +1,14 @@
+# Virtual environments
+.venv/
+venv/
+
+# Secrets
+.env
+*.env
+
+# Pytest cache
+.pytest_cache/
+
+# Ignore Python bytecode
+_pycache_/
+*.py[cod]
