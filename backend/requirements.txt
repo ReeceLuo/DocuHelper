@@ -1,2 +1,14 @@
-pydantic-settings
-fastapi
+annotated-doc==0.0.4
+annotated-types==0.7.0
+anyio==4.12.1
+fastapi==0.128.0
+idna==3.11
+pwdlib==0.3.0
+pydantic==2.12.5
+pydantic-settings==2.12.0
+pydantic_core==2.41.5
+python-dotenv==1.2.1
+SQLAlchemy==2.0.45
+starlette==0.50.0
+typing-inspection==0.4.2
+typing_extensions==4.15.0
