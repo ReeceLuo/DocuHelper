@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional
+from typing import Optional, List
+from datetime import datetime
 
 
 
@@ -13,3 +14,18 @@ class UserResponse(BaseModel):
     email: str
 
     model_config = ConfigDict(from_attributes = True)
+
+
+
+
+class FileUploadResponse(BaseModel):
+    id: int
+    file_name: str
+    file_type: str
+    uploaded_at: datetime
+    summary: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes = True)
+
+class FileListResponse(BaseModel):
+    files: List[FileUploadResponse]

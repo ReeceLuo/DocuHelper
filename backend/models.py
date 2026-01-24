@@ -16,7 +16,7 @@ class Files(Base):
     __tablename__ = "files_table"
 
     id: Mapped[int] = mapped_column(primary_key = True, index = True)
-    user_id: Mapped[str] = mapped_column(ForeignKey("user_table.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("user_table.id"))
     user: Mapped["User"] = relationship(back_populates = "files")
     file_name: Mapped[str] = mapped_column(nullable = False)
     file_type: Mapped[str] = mapped_column(nullable = False)

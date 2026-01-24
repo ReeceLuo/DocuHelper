@@ -8,7 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.events import SessionEvents
 
-from backend.models import User
+from models import User
 from config import settings
 from database import get_db
 
@@ -27,7 +27,7 @@ def verify_password(password, password_hash):
 """
 JWT
 """
-oauth2_scheme = OAuth2PasswordBearer(tokenURL = "token") 
+oauth2_scheme = OAuth2PasswordBearer(tokenURL = "auth/login") 
 # extracts bearer token from Authorization header and enforces the bearer token format
 # bearer token - access token for whoever "bears" the token
 
