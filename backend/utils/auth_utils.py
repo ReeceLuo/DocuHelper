@@ -5,8 +5,12 @@ from jose import JWTError, jwt
 from typing import Optional
 from datetime import datetime, timezone
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy.orm import Session
+from sqlalchemy.orm.events import SessionEvents
 
-from config import get_db, settings
+from backend.models import User
+from config import settings
+from database import get_db
 
 """
 Password
@@ -23,11 +27,22 @@ def verify_password(password, password_hash):
 """
 JWT
 """
-oauth2_scheme = OAuth2PasswordBearer(tokenURL = "token")
+oauth2_scheme = OAuth2PasswordBearer(tokenURL = "token") 
+# extracts bearer token from Authorization header and enforces the bearer token format
+# bearer token - access token for whoever "bears" the token
 
 SECRET_KEY = settings.JWT_SIGNING_KEY
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRES_MINUTES = 30
+
+# Helper to authenticate user in login route before issuing JWT
+def authenticate_user(name: str, password: str, db: Session):
+    user = db.query(User).filter(User.name == name).first()
+    if user is None:
+        return None
+    if not verify_password(password, user.password_hash):
+        return None
+    return user
 
 def create_access_token(
     data: dict,
@@ -45,7 +60,10 @@ def create_access_token(
         algorithm = ALGORITHM
     )
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_user_from_db(user_id: int, db: Session = Depends(get_db)):
+    return db.query(User).filter(User.id == user_id).first()
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code = status.HTTP_401_UNAUTHORIZED,
         detail = "Could not validate credentials.",
@@ -58,13 +76,15 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
             SECRET_KEY,
             algorithms = [ALGORITHM]
         )
-        user_id: str = payload.get("sub")
+        user_id = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-    except JWTError:
+        # Convert to int if it's a string (some JWT libraries encode as string)
+        user_id = int(user_id) if isinstance(user_id, str) else user_id
+    except (JWTError, ValueError, TypeError):
         raise credentials_exception
     
-    user = get_user_from_db(user_id)
+    user = get_user_from_db(user_id, db)
     if user is None:
         raise credentials_exception
 
