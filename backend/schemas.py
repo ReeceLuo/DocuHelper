@@ -18,7 +18,7 @@ class UserResponse(BaseModel):
 
 
 
-class FileUploadResponse(BaseModel):
+class FileResponse(BaseModel):
     id: int
     file_name: str
     file_type: str
@@ -28,4 +28,4 @@ class FileUploadResponse(BaseModel):
     model_config = ConfigDict(from_attributes = True)
 
 class FileListResponse(BaseModel):
-    files: List[FileUploadResponse]
+    files: List[FileResponse]

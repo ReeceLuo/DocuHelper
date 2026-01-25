@@ -10,9 +10,9 @@ class User(Base):
     name: Mapped[str] = mapped_column(nullable = False)
     email: Mapped[str] = mapped_column(nullable = False)
     password_hash: Mapped[str] = mapped_column(nullable = False)
-    files: Mapped[List["Files"]] = relationship(back_populates = "user")
+    files: Mapped[List["FileModel"]] = relationship(back_populates = "user")
 
-class Files(Base):
+class FileModel(Base):
     __tablename__ = "files_table"
 
     id: Mapped[int] = mapped_column(primary_key = True, index = True)

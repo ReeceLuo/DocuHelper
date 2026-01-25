@@ -1,10 +1,9 @@
 import re           # regex based text cleaning
 import docx         # reads docx files
 import pymupdf      # reads pdf files
+from pathlib import Path
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from transformers import pipeline   # huggingface api for ml model inference
-
-summarizer = pipeline("summarization", model = "facebook/bart-large-cnn")
 
 
 class DocumentSummarizer:
@@ -33,13 +32,14 @@ class DocumentSummarizer:
         return chunks
 
     def summarize_chunk(self, chunk: str) -> str:
-        return self.summarizer(
+        result = self.summarizer(
             chunk,
             min_length = 80,
             max_length = 300,
             do_sample = False,  # greedy decoding (deterministic)
             truncation = True
         )
+        return result[0]["summary_text"] if result else ""
 
     # Hierarchy: Summarize each chunks, then summarize their summaries
     def summarize_document(self, text: str) -> str:
@@ -60,15 +60,46 @@ class DocumentSummarizer:
             do_sample = False,
             truncation = True
         )
+        
+        return final_summary[0]["summary_text"] if final_summary else ""
 
-        return final_summary
 
+def extract_text_from_pdf(file_path: str | Path) -> str:
+    try:
+        doc = pymupdf.open(file_path)
+        text = "\n".join(page.get_text("text") for page in doc)
+        doc.close()
+        return text.strip()
+    except Exception as e:
+        raise ValueError(f"Error extracting text from PDF: {str(e)}")
 
-def extract_text_from_pdf(file_path):
-    doc = pymupdf.open(file_path)
-    text = "\n".join(page.get_text("text") for page in doc)
-    return text.strip()
+def extract_text_from_docx(file_path: str | Path) -> str:
+    try:
+        doc = docx.Document(file_path)
+        return "\n".join(para.text for para in doc.paragraphs if para.text.strip())
+    except Exception as e:
+        raise ValueError(f"Error extracting text from DOCX: {str(e)}")
 
-def extract_text_from_docx(file_path):
-    doc = docx.Document(file_path)
-    return "\n".join(para.text for para in doc.paragraphs if para.text.strip())
+def extract_text_from_txt(file_path: str | Path) -> str:
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except UnicodeDecodeError:
+        # Try with different encoding if UTF-8 fails
+        with open(file_path, "r", encoding="latin-1") as f:
+            return f.read().strip()
+    except Exception as e:
+        raise ValueError(f"Error extracting text from TXT: {str(e)}")
+
+def extract_text_from_file(file_path: str | Path, file_type: str) -> str:
+    """Extract text from file based on file type"""
+    file_type = file_type.lower()
+    
+    if file_type == "pdf":
+        return extract_text_from_pdf(file_path)
+    elif file_type == "docx":
+        return extract_text_from_docx(file_path)
+    elif file_type == "txt":
+        return extract_text_from_txt(file_path)
+    else:
+        raise ValueError(f"Unsupported file type: {file_type}")
