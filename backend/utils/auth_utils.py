@@ -27,7 +27,7 @@ def verify_password(password, password_hash):
 """
 JWT
 """
-oauth2_scheme = OAuth2PasswordBearer(tokenURL = "auth/login") 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl = "auth/login") 
 # extracts bearer token from Authorization header and enforces the bearer token format
 # bearer token - access token for whoever "bears" the token
 

@@ -12,6 +12,8 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(nullable = False)
     files: Mapped[List["FileModel"]] = relationship(back_populates = "user")
 
+
+# Store metadata about files, not the files themselves
 class FileModel(Base):
     __tablename__ = "files_table"
 

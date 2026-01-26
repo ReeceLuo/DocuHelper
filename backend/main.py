@@ -1,9 +1,6 @@
 from fastapi import FastAPI
-from routes import AuthRoutes, FilesRoutes
-from database import engine, Base
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+from routes import AuthRoutes, FileRoutes
 
 app = FastAPI(
     title = "DocuHelper",
@@ -11,9 +8,8 @@ app = FastAPI(
     version = "1.0.0"
 )
 
-# Include routers
 app.include_router(AuthRoutes.router)
-app.include_router(FilesRoutes.router)
+app.include_router(FileRoutes.router)
 
 @app.get("/")
 def root():
