@@ -6,7 +6,7 @@ from database import get_db
 from schemas import FileResponse, FileListResponse
 from utils.auth_utils import get_current_user
 from utils.upload_utils import save_uploaded_file, get_file_type
-from utils.summary_utils import extract_text_from_file, summarizer
+from utils.file_utils import extract_text_from_file, summarizer
 
 router = APIRouter(
     prefix = "/files",
