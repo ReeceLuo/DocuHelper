@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 
-from models import FileModel, User
+from models import UserModel, FileModel, ChunkModel
 from database import get_db
 from schemas import FileResponse, FileListResponse
 from utils.auth_utils import get_current_user
 from utils.upload_utils import save_uploaded_file, get_file_type
-from utils.file_utils import extract_text_from_file, summarizer
+from utils.file_utils import extract_text_from_file, file_helper
+from utils.embedding_utils import generate_embedding
 
 router = APIRouter(
     prefix = "/files",
@@ -17,7 +18,7 @@ router = APIRouter(
 @router.post("/upload", response_model = FileResponse, status_code = status.HTTP_201_CREATED)
 async def upload_file(
     file: UploadFile = File(...), # ... -> param is required in FastAPI
-    current_user: User = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     try:
@@ -26,20 +27,33 @@ async def upload_file(
 
         extracted_text = extract_text_from_file(file_path, file_type)
         if extracted_text != "":
-            summary = summarizer.summarize_document(extracted_text)
+            summary = file_helper.summarize_document(extracted_text)
 
         # Create database record
-        db_file = FileModel(
+        file_record = FileModel(
             user_id = current_user.id,
             file_name = file.filename,
             file_type = file_type,
             summary = summary
         )
 
-        db.add(db_file)
+        db.add(file_record)
         db.commit()
-        db.refresh(db_file)
-        return db_file
+        db.refresh(file_record)
+
+        chunks = file_helper.split_text(extracted_text)
+        chunk_records = []
+
+        for chunk in chunks:
+            embedding = generate_embedding(chunk)
+            if embedding is not None:
+                chunk_record = ChunkModel(file_id = file_record.id, text = chunk, embedding = embedding.tolist())
+                chunk_records.append(chunk_record)
+
+        db.bulk_save_objects(chunk_records)
+        db.commit()
+
+        return file_record
 
     except HTTPException:
         raise
@@ -53,7 +67,7 @@ async def upload_file(
 # Get list of all file information from a user
 @router.get("/", response_model = FileListResponse)
 def get_file_list(
-    current_user: User = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     files = db.query(FileModel).filter(FileModel.user_id == current_user.id).all()
@@ -63,7 +77,7 @@ def get_file_list(
 @router.get("/{file_id}", response_model = FileResponse)
 def get_file(
     file_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     file = db.query(FileModel).filter(

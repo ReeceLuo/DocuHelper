@@ -13,24 +13,23 @@ class FileHelper:
     def __init__(
         self,
         model_name: str = "facebook/bart-large-cnn", # bart-large-cnn: standard model for summarization, fine-tuned on CNN Daily mail
-        chunk_size: int = 600,                       
-        chunk_overlap: int = 60,
         single_summary_max_char: int = SINGLE_SUMMARY_MAX_CHAR,
     ):
         self.summarizer = pipeline("summarization", model_name = model_name)
         self.single_summary_max_char = single_summary_max_char
-        self.text_splitter = RecursiveCharacterTextSplitter(
+
+    def split_text(text: str, chunk_size = 230, chunk_overlap = 60) -> list[str]:
+        if not text.strip():
+            return []
+
+        text_splitter = RecursiveCharacterTextSplitter(
             chunk_size = chunk_size,                    # chunk size (characters)
             chunk_overlap = chunk_overlap,              # character overlap when chunking (preventing context loss)
             separators = ["\n\n", ". ", "? ", "! "],    # splits on: paragraphs and sentences (., ?, !)
             keep_separator = True                       # keeps punctuation
         )
-
-    def split_text(self, text: str) -> list[str]:
-        if not text.strip():
-            return []
       
-        chunks = self.text_splitter.split_text(text)
+        chunks = text_splitter.split_text(text)
         return chunks
 
     def summarize_text(self, text: str, min_len: int = 80, max_len: int = 300) -> str:
@@ -55,7 +54,7 @@ class FileHelper:
             return self.summarize_text(cleaned, min_len = 80, max_len = 300)
 
         # Long doc: chunk → summarize each → summarize the combined summaries
-        chunks = self.split_text(text)
+        chunks = self.split_text(text, chunk_size = 600, chunk_overlap = 60)
         if not chunks:
             return ""
 
@@ -66,7 +65,7 @@ class FileHelper:
         return final_summary[0]["summary_text"] if final_summary else ""
 
 # Global instance
-summarizer = FileHelper()
+file_helper = FileHelper()
 
 def extract_text_from_pdf(file_path: str | Path) -> str:
     try:
