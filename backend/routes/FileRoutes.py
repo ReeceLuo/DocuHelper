@@ -6,6 +6,7 @@ from database import get_db
 from schemas import FileResponse, FileListResponse
 from utils.auth_utils import get_current_user
 from utils.upload_utils import save_uploaded_file, get_file_type
+from utils.summary_utils import extract_text_from_file, summarizer
 
 router = APIRouter(
     prefix = "/files",
@@ -15,7 +16,7 @@ router = APIRouter(
 
 @router.post("/upload", response_model = FileResponse, status_code = status.HTTP_201_CREATED)
 async def upload_file(
-    file: UploadFile = File(...),
+    file: UploadFile = File(...), # ... -> param is required in FastAPI
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -23,12 +24,16 @@ async def upload_file(
         file_path, file_size = save_uploaded_file(file, current_user.id)
         file_type = get_file_type(file)
 
+        extracted_text = extract_text_from_file(file_path, file_type)
+        if extracted_text != "":
+            summary = summarizer.summarize_document(extracted_text)
+
         # Create database record
         db_file = FileModel(
             user_id = current_user.id,
             file_name = file.filename,
             file_type = file_type,
-            summary = None              # will be populated later
+            summary = summary
         )
 
         db.add(db_file)
@@ -42,7 +47,7 @@ async def upload_file(
         db.rollback()
         raise HTTPException(
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail = f"Error uploading file: {str:(e)}"
+            detail = f"Error uploading file: {str(e)}"
         )
 
 # Get list of all file information from a user

@@ -6,14 +6,20 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from transformers import pipeline   # huggingface api for ml model inference
 
 
+# BART has 1024-token input limit; ~4 chars/token -> ~4000 chars. Stay under for safety.
+SINGLE_SUMMARY_MAX_CHAR = 3000
+
+
 class DocumentSummarizer:
     def __init__(
         self,
         model_name: str = "facebook/bart-large-cnn", # bart-large-cnn: standard model for summarization, fine-tuned on CNN Daily mail
-        chunk_size: int = 225,
-        chunk_overlap: int = 60
+        chunk_size: int = 600,   # chars per chunk (fits in one BART call)
+        chunk_overlap: int = 60,
+        single_summary_max_char: int = SINGLE_SUMMARY_MAX_CHAR,
     ):
         self.summarizer = pipeline("summarization", model_name = model_name)
+        self.single_summary_max_char = single_summary_max_char
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size = chunk_size,                    # chunk size (characters)
             chunk_overlap = chunk_overlap,              # character overlap when chunking (preventing )
@@ -24,45 +30,44 @@ class DocumentSummarizer:
     def split_text(self, text: str) -> list[str]:
         if not text.strip():
             return []
-
-        # clean text w/ re by converting all white space into single spaces
-        text = re.sub(r'\s+', ' ', text).strip()
-
+      
         chunks = self.text_splitter.split_text(text)
         return chunks
 
-    def summarize_chunk(self, chunk: str) -> str:
+    def summarize_text(self, text: str, min_len: int = 80, max_len: int = 300) -> str:
         result = self.summarizer(
-            chunk,
-            min_length = 80,
-            max_length = 300,
-            do_sample = False,  # greedy decoding (deterministic)
-            truncation = True
+            text,
+            min_length=min_len,
+            max_length=max_len,
+            do_sample=False,
+            truncation=True,
         )
         return result[0]["summary_text"] if result else ""
 
-    # Hierarchy: Summarize each chunks, then summarize their summaries
     def summarize_document(self, text: str) -> str:
+        """One summary for the whole document. Uses single pass when short, else chunk → summarize each → summarize combined."""
+        # Clean text w/ re by converting all white space into single spaces
+        cleaned = re.sub(r"\s+", " ", text).strip()
+        if not cleaned:
+            return ""
+
+        # Short doc: one pass (better coherence, faster)
+        if len(cleaned) <= self.max_chars_single:
+            return self.summarize_text(cleaned, min_len = 80, max_len = 300)
+
+        # Long doc: chunk → summarize each → summarize the combined summaries
         chunks = self.split_text(text)
         if not chunks:
             return ""
 
-        chunk_summaries = [
-            self.summarize_chunk(chunk) for chunk in chunks
-        ]
-
-        combined_summaries = " ".join(chunk_summaries)
-
-        final_summary = self.summarizer(
-            combined_summaries,
-            min_length = 120,
-            max_length = 350,
-            do_sample = False,
-            truncation = True
-        )
+        chunk_summaries = [self.summarize_text(c) for c in chunks]
+        combined = " ".join(chunk_summaries)
+        final_summary = self.summarize_text(combined, min_len = 120, max_len = 350)
         
         return final_summary[0]["summary_text"] if final_summary else ""
 
+# Global instance
+summarizer = DocumentSummarizer()
 
 def extract_text_from_pdf(file_path: str | Path) -> str:
     try:
